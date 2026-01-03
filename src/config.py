@@ -126,3 +126,25 @@ class Colors:
 APP_NAME = "Password Strength Checker"
 APP_VERSION = "0.3.0"
 APP_STAGE = "Modular Refactoring"
+
+# ============================================================================
+# FILE PATHS
+# ============================================================================
+
+import os
+
+# Get the project root directory (parent of src/)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Path to common passwords file
+COMMON_PASSWORDS_FILE = os.path.join(PROJECT_ROOT, 'data', 'common_passwords.txt')
+
+# ============================================================================
+# API CONFIGURATION
+# ============================================================================
+
+# Have I Been Pwned API endpoint
+HIBP_API_URL = "https://api.pwnedpasswords.com/range/"
+
+# API timeout in seconds
+API_TIMEOUT = 5

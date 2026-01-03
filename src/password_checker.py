@@ -44,7 +44,11 @@ from .display import (
     print_warning,
     print_error
 )
-
+from .checker import (
+    check_common_password,
+    check_pwned_password,
+    generate_recommendations
+)
 
 # ============================================================================
 # MAIN ANALYSIS FUNCTION
@@ -62,9 +66,11 @@ def analyze_password(password: str) -> dict:
         2. Calculate base score from validations
         3. Calculate password entropy
         4. Detect weak patterns
-        5. Apply penalties for weak patterns
-        6. Calculate final score
-        7. Determine strength category
+        5. Check against common passwords database
+        6. Apply penalties for weak patterns
+        7. Calculate final score
+        8. Determine strength category
+        9. Generate recommendations
     
     Args:
         password (str): The password string to analyze
@@ -83,6 +89,10 @@ def analyze_password(password: str) -> dict:
             - color (str): Color code for strength
             - passed_all_checks (bool): True if all validations passed
             - has_weak_patterns (bool): True if patterns detected
+            - is_common (bool): True if found in common passwords
+            - common_password_message (str): Message about common password check
+            - recommendations (list): Specific improvement suggestions
+            - password (str): Original password (for recommendations)
     
     Example:
         >>> results = analyze_password("MyP@ssw0rd!X9")
@@ -91,20 +101,28 @@ def analyze_password(password: str) -> dict:
         >>> print(results['strength'])
         'VERY STRONG'
     """
+
     # Initialize results dictionary
     results = {
-        'checks': [],
-        'base_score': 0,
-        'penalties': [],
-        'total_penalty': 0,
-        'final_score': 0,
-        'entropy': 0,
-        'entropy_rating': '',
-        'entropy_color': '',
-        'strength': '',
-        'color': '',
-        'passed_all_checks': True,
-        'has_weak_patterns': False
+    'checks': [],
+    'base_score': 0,
+    'penalties': [],
+    'total_penalty': 0,
+    'final_score': 0,
+    'entropy': 0,
+    'entropy_rating': '',
+    'entropy_color': '',
+    'strength': '',
+    'color': '',
+    'passed_all_checks': True,
+    'has_weak_patterns': False,
+    'is_common': False,
+    'common_password_message': '',
+    'is_pwned': False,              # NEW
+    'pwned_message': '',            # NEW
+    'pwned_count': 0,               # NEW
+    'recommendations': [],
+    'password': password  # Store for recommendations
     }
     
     # ========================================================================
@@ -169,20 +187,75 @@ def analyze_password(password: str) -> dict:
                 })
     
     # ========================================================================
-    # STEP 4: Calculate final score with penalties
+    # STEP 4: Check common passwords database
+    # ========================================================================
+    
+    is_common, common_msg = check_common_password(password)
+    results['is_common'] = is_common
+    results['common_password_message'] = common_msg
+    
+    # Apply severe penalty if password is common
+    if is_common:
+        # Common passwords get massive penalty
+        results['total_penalty'] += 50
+        results['penalties'].append({
+            'type': 'Common Password',
+            'instances': ['***'],  # Don't show the actual password
+            'penalty': 50
+        })
+    
+    # ========================================================================
+    # STEP 5: Check Have I Been Pwned database
+    # ========================================================================
+
+    is_pwned, pwned_msg, pwned_count = check_pwned_password(password)
+    results['is_pwned'] = is_pwned
+    results['pwned_message'] = pwned_msg
+    results['pwned_count'] = pwned_count
+
+    # Apply penalty based on breach severity
+    if is_pwned:
+        # Calculate penalty based on how many times it was seen
+        if pwned_count > 100000:
+            breach_penalty = 40  # Critical
+        elif pwned_count > 10000:
+            breach_penalty = 35  # Very High
+        elif pwned_count > 1000:
+            breach_penalty = 30  # High
+        else:
+            breach_penalty = 25  # Moderate
+    
+        # Apply the penalty
+        results['total_penalty'] += breach_penalty
+        results['penalties'].append({
+            'type': 'Data Breach Exposure',
+            'instances': [f'{pwned_count:,} breaches'],
+            'penalty': breach_penalty
+        })
+
+    # ========================================================================
+    # STEP 6: Calculate final score with penalties
     # ========================================================================
     
     # Final score = base score - penalties (minimum 0)
     results['final_score'] = max(0, results['base_score'] - results['total_penalty'])
     
     # ========================================================================
-    # STEP 5: Determine strength category
+    # STEP 7: Determine strength category
     # ========================================================================
     
     strength, color = get_strength_category(results['final_score'])
     results['strength'] = strength
     results['color'] = color
     
+    # ========================================================================
+    # STEP 8: Generate recommendations
+    # ========================================================================
+
+    # Only generate recommendations if password is not strong
+    if results['final_score'] < 80 or results['is_common'] or results['is_pwned']:
+        results['recommendations'] = generate_recommendations(results)
+
     return results
 
 
@@ -242,8 +315,10 @@ def main():
             sys.exit(0)
         
         except Exception as e:
-            # Catch any unexpected errors
+            # Catch any unexpected errors - show full traceback for debugging
+            import traceback
             print_error(f"Unexpected error: {str(e)}")
+            traceback.print_exc()  # Print full error details
             continue
 
 

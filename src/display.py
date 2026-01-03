@@ -218,6 +218,65 @@ def print_final_score(final_score: int, strength: str, color: str):
     print(f"{score_bar}\n")
 
 
+def print_common_password_check(is_common: bool, message: str):
+    """
+    Displays common password database check results.
+    
+    Args:
+        is_common (bool): True if password found in common database
+        message (str): Detailed message about the check
+    """
+    print(f"\n{Colors.CYAN}Common Password Check:{Colors.RESET}")
+    print(create_separator())
+    
+    if is_common:
+        # Critical warning if password is common
+        print(f"{Colors.RED}[CRITICAL]{Colors.RESET} {message}")
+    else:
+        # Success if password is not common
+        print(f"{Colors.GREEN}[PASS]{Colors.RESET} {message}")
+
+def print_breach_check(is_pwned: bool, message: str):
+    """
+    Displays Have I Been Pwned breach check results.
+    
+    Args:
+        is_pwned (bool): True if password found in breaches
+        message (str): Detailed message about the check
+    """
+    print(f"\n{Colors.CYAN}Data Breach Check (Have I Been Pwned):{Colors.RESET}")
+    print(create_separator())
+    
+    if is_pwned:
+        # Critical warning if password was breached
+        print(f"{Colors.RED}[CRITICAL]{Colors.RESET} {message}")
+    else:
+        # Check if it's a skip/error message
+        if "unavailable" in message.lower() or "timed out" in message.lower() or "error" in message.lower():
+            print(f"{Colors.YELLOW}[WARN]{Colors.RESET} {message}")
+        else:
+            # Success if password not found in breaches
+            print(f"{Colors.GREEN}[PASS]{Colors.RESET} {message}")
+
+def print_recommendations(recommendations: list[str]):
+    """
+    Displays password improvement recommendations.
+    
+    Args:
+        recommendations (list): List of recommendation strings
+    """
+    if not recommendations:
+        return
+    
+    print(f"\n{Colors.CYAN}Recommendations for Improvement:{Colors.RESET}")
+    print(create_separator())
+    
+    for i, recommendation in enumerate(recommendations, 1):
+        print(f"{Colors.YELLOW}[{i}]{Colors.RESET} {recommendation}")
+    
+    print(create_separator())
+
+
 # ============================================================================
 # MAIN RESULTS DISPLAY FUNCTION
 # ============================================================================
@@ -237,8 +296,11 @@ def print_analysis_results(results: dict):
         1. Security checks table
         2. Base score
         3. Entropy analysis
-        4. Weak patterns (if any)
-        5. Final score and strength rating
+        4. Common password check
+        5. Data breach check (Have I Been Pwned)
+        6. Weak patterns (if any)
+        7. Final score and strength rating
+        8. Recommendations (if applicable)
     """
     # Display individual security checks
     print_security_checks(results['checks'])
@@ -253,8 +315,20 @@ def print_analysis_results(results: dict):
         results['entropy_color']
     )
     
+    # Display common password check
+    print_common_password_check(
+        results['is_common'],
+        results['common_password_message']
+    )
+    
+    # Display data breach check
+    print_breach_check(
+        results['is_pwned'],
+        results['pwned_message']
+    )
+    
     # Display weak patterns if detected
-    if results['has_weak_patterns']:
+    if results['has_weak_patterns'] or results['is_common'] or results['is_pwned']:
         print_weak_patterns(
             results['penalties'],
             results['total_penalty']
@@ -266,6 +340,10 @@ def print_analysis_results(results: dict):
         results['strength'],
         results['color']
     )
+    
+    # Display recommendations if any
+    if results.get('recommendations'):
+        print_recommendations(results['recommendations'])
 
 
 # ============================================================================
@@ -300,3 +378,5 @@ def print_error(message: str):
         message (str): Error message to display
     """
     print(f"{Colors.RED}[ERROR]{Colors.RESET} {message}\n")
+
+    
